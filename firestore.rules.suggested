@@ -1,0 +1,37 @@
+// SUGGESTED rules after adding the backend. Your original firestore.rules was not in the zip,
+// so MERGE the `orders` block into your existing file instead of replacing it blindly.
+// Key idea: browsers can no longer CREATE orders – only the backend (Admin SDK, bypasses rules) can.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in [
+          'astropulsesmmpanel@gmail.com',
+          'admin@astropulse.com',
+          'developer9692@gmail.com'
+        ];
+    }
+
+    match /orders/{orderId} {
+      allow read:   if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if false;          // ← orders are created by the backend only
+      allow update: if isAdmin();      // admin panel Complete / Decline buttons
+      allow delete: if false;
+    }
+
+    match /settings/{doc}  { allow read: if true; allow write: if isAdmin(); }
+    match /services/{doc}  { allow read: if true; allow write: if isAdmin(); }
+
+    // storefront service id → provider service id. ADMIN ONLY (customers must never see which provider you use)
+    match /providerServices/{id} { allow read, write: if isAdmin(); }
+
+    match /refillRequests/{id} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read:   if request.auth != null && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin();
+    }
+  }
+}
